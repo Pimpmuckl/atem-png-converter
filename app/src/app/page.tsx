@@ -212,7 +212,7 @@ export default function Home() {
   }, [processedFiles, downloadAsZip, isDownloadingAll]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6 sm:p-12 bg-gray-100">
+    <main className="flex min-h-screen flex-col items-center justify-center p-6 sm:p-12 bg-gray-100 dark:bg-gray-900">
       <Image
         src="/layerth_logo_gradient.png"
         alt="Layerth Logo"
@@ -221,18 +221,18 @@ export default function Home() {
         className="mb-8"
         priority
       />
-      <div className="w-full max-w-lg bg-white p-6 sm:p-8 rounded-lg shadow-md mb-0">
-        <h1 className="text-2xl font-bold mb-2 text-center text-gray-800">
+      <div className="w-full max-w-lg bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-md mb-0">
+        <h1 className="text-2xl font-bold mb-2 text-center text-gray-800 dark:text-gray-100">
           PNG Pre-Multiplier
         </h1>
-        <p className="text-sm text-center text-gray-600 mb-6">
+        <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
           For Blackmagic ATEM Switchers
         </p>
         <div
           className={`relative border-2 border-dashed rounded-lg p-8 sm:p-10 text-center cursor-pointer transition-colors duration-200 ${
             isDragging
-              ? "border-blue-600 bg-blue-50"
-              : "border-gray-300 hover:border-blue-500"
+              ? "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-gray-700"
+              : "border-gray-300 hover:border-blue-500 dark:border-gray-600 dark:hover:border-blue-400"
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -251,12 +251,14 @@ export default function Home() {
             className="hidden"
             onChange={handleFileChange}
           />
-          <p className="text-gray-500 pointer-events-none">
+          <p className="text-gray-500 dark:text-gray-400 pointer-events-none">
             Drag & drop your PNG files here, or click to select files
           </p>
           {isProcessing && (
-            <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center">
-              <p className="text-lg font-semibold text-blue-600">Processing...</p>
+            <div className="absolute inset-0 bg-white bg-opacity-80 dark:bg-gray-800 dark:bg-opacity-80 flex items-center justify-center rounded-lg">
+              <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                Processing...
+              </p>
             </div>
           )}
         </div>
@@ -265,10 +267,10 @@ export default function Home() {
           <div className="mt-6 space-y-4">
             {selectedFiles.length > 0 && (
               <div>
-                <h2 className="text-lg font-semibold mb-2 text-gray-700">
+                <h2 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300">
                   Selected Files ({selectedFiles.length}):
                 </h2>
-                <ul className="list-disc list-inside text-gray-600 max-h-32 overflow-y-auto text-sm space-y-1 bg-gray-50 p-2 rounded">
+                <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 max-h-32 overflow-y-auto text-sm space-y-1 bg-gray-50 dark:bg-gray-700 p-2 rounded">
                   {selectedFiles.map((file, index) => (
                     <li key={index}>{file.name}</li>
                   ))}
@@ -278,46 +280,46 @@ export default function Home() {
 
             {processedFiles.length > 0 && (
               <div>
-                <h2 className="text-lg font-semibold mb-2 text-gray-700">
+                <h2 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300">
                   Processed Files ({processedFiles.length}):
                 </h2>
                 {processedFiles.length > 1 && (
-                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-100 p-3 rounded-md mb-4">
-                      <button
-                          onClick={handleDownloadAll}
-                          disabled={isDownloadingAll}
-                          className="flex-grow px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-wait font-medium text-sm"
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-100 dark:bg-gray-700 p-3 rounded-md mb-4">
+                    <button
+                      onClick={handleDownloadAll}
+                      disabled={isDownloadingAll}
+                      className="flex-grow px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50 disabled:cursor-wait font-medium text-sm"
+                    >
+                      {isDownloadingAll ? "Zipping..." : "Download All"}
+                    </button>
+                    <div className="flex items-center justify-center sm:justify-start space-x-2 flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        id="zipCheckbox"
+                        checked={downloadAsZip}
+                        onChange={(e) => setDownloadAsZip(e.target.checked)}
+                        disabled={isDownloadingAll}
+                        className="h-4 w-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50"
+                      />
+                      <label 
+                        htmlFor="zipCheckbox" 
+                        className="text-sm text-gray-700 dark:text-gray-300 select-none"
                       >
-                          {isDownloadingAll ? "Zipping..." : "Download All"}
-                      </button>
-                      <div className="flex items-center justify-center sm:justify-start space-x-2 flex-shrink-0">
-                          <input
-                              type="checkbox"
-                              id="zipCheckbox"
-                              checked={downloadAsZip}
-                              onChange={(e) => setDownloadAsZip(e.target.checked)}
-                              disabled={isDownloadingAll}
-                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
-                          />
-                          <label 
-                              htmlFor="zipCheckbox" 
-                              className="text-sm text-gray-700 select-none"
-                          >
-                              as ZIP
-                          </label>
-                      </div>
+                        as ZIP
+                      </label>
+                    </div>
                   </div>
                 )}
                 <ul className="space-y-2">
                   {processedFiles.map((file, index) => (
-                    <li key={index} className="flex justify-between items-center text-sm bg-green-50 p-2 rounded">
-                      <span className="text-green-800 truncate pr-2">
+                    <li key={index} className="flex justify-between items-center text-sm bg-green-50 dark:bg-green-900 dark:bg-opacity-50 p-2 rounded">
+                      <span className="text-green-800 dark:text-green-300 truncate pr-2">
                         {file.filename}
                       </span>
                       <a
                         href={file.url}
                         download={file.filename}
-                        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs font-medium whitespace-nowrap"
+                        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 text-xs font-medium whitespace-nowrap"
                       >
                         Download
                       </a>
@@ -330,7 +332,7 @@ export default function Home() {
             <button
               onClick={handleClearAll}
               disabled={isProcessing}
-              className="mt-4 w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              className="mt-4 w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
               Clear All
             </button>
@@ -339,7 +341,7 @@ export default function Home() {
       </div>
 
       <footer className="mt-8 text-center">
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           © {new Date().getFullYear()} Layerth OÜ
         </p>
       </footer>

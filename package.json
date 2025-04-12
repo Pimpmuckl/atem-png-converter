@@ -4,5 +4,8 @@
     "@types/jszip": "^3.4.0",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.1.3"
   }
 }
