@@ -280,6 +280,13 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Footer with Copyright */}
+      <footer className="mt-8 text-center">
+        <p className="text-xs text-gray-500">
+          © {new Date().getFullYear()} Layerth OÜ
+        </p>
+      </footer>
     </main>
   );
 }
