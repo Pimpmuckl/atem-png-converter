@@ -10,10 +10,13 @@ import React, {
   KeyboardEvent,
 } from "react";
 import Image from "next/image";
+import JSZip from "jszip";
+import { saveAs } from 'file-saver';
 
 interface ProcessedFile {
   url: string;
   filename: string;
+  blob: Blob;
 }
 
 const premultiplyAlpha = (file: File): Promise<ProcessedFile | null> => {
@@ -65,7 +68,7 @@ const premultiplyAlpha = (file: File): Promise<ProcessedFile | null> => {
               const baseName = file.name.substring(0, file.name.lastIndexOf("."));
               const extension = file.name.substring(file.name.lastIndexOf("."));
               const filename = `${baseName}_premult${extension}`;
-              resolve({ url, filename });
+              resolve({ url, filename, blob });
             } else {
               console.error("Failed to create blob from canvas");
               reject(new Error("Failed to create blob"));
@@ -87,10 +90,11 @@ export default function Home() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [processedFiles, setProcessedFiles] = useState<ProcessedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [downloadAsZip, setDownloadAsZip] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cleanup object URLs
   useEffect(() => {
     return () => {
       processedFiles.forEach((file) => URL.revokeObjectURL(file.url));
@@ -105,7 +109,6 @@ export default function Home() {
     );
 
     if (newPngFiles.length === 0) {
-        // TODO: Add better user feedback if non-PNG files are ignored
         console.log("No new PNG files selected.");
         return;
     }
@@ -149,7 +152,6 @@ export default function Home() {
   const handleFileChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       handleFileProcessing(event.target.files);
-      // Reset input value to allow selecting the same file again
       if (event.target) {
         event.target.value = "";
       }
@@ -180,6 +182,35 @@ export default function Home() {
     }
   }, [processedFiles]);
 
+  const handleDownloadAll = useCallback(async () => {
+    if (processedFiles.length === 0 || isDownloadingAll) return;
+
+    setIsDownloadingAll(true);
+
+    if (downloadAsZip) {
+      const zip = new JSZip();
+      processedFiles.forEach((file) => {
+        zip.file(file.filename, file.blob);
+      });
+
+      try {
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        saveAs(zipBlob, "premultiplied_files.zip");
+      } catch (error) {
+        console.error("Error generating zip file:", error);
+      }
+    } else {
+      processedFiles.forEach((file) => {
+         const link = document.createElement('a');
+         link.href = file.url;
+         link.download = file.filename;
+         link.click(); 
+      });
+    }
+
+    setIsDownloadingAll(false);
+  }, [processedFiles, downloadAsZip, isDownloadingAll]);
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6 sm:p-12 bg-gray-100">
       <Image
@@ -208,7 +239,7 @@ export default function Home() {
           onDrop={handleDrop}
           onClick={handleDivClick}
           onKeyDown={handleKeyDown}
-          tabIndex={0} // Make div focusable
+          tabIndex={0}
           role="button"
           aria-label="File upload area"
         >
@@ -216,7 +247,7 @@ export default function Home() {
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/png" // Accept only PNG files
+            accept="image/png"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -226,7 +257,6 @@ export default function Home() {
           {isProcessing && (
             <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center">
               <p className="text-lg font-semibold text-blue-600">Processing...</p>
-              {/* You could add a spinner here */}
             </div>
           )}
         </div>
@@ -251,6 +281,33 @@ export default function Home() {
                 <h2 className="text-lg font-semibold mb-2 text-gray-700">
                   Processed Files ({processedFiles.length}):
                 </h2>
+                {processedFiles.length > 1 && (
+                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-100 p-3 rounded-md mb-4">
+                      <button
+                          onClick={handleDownloadAll}
+                          disabled={isDownloadingAll}
+                          className="flex-grow px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-wait font-medium text-sm"
+                      >
+                          {isDownloadingAll ? "Zipping..." : "Download All"}
+                      </button>
+                      <div className="flex items-center justify-center sm:justify-start space-x-2 flex-shrink-0">
+                          <input
+                              type="checkbox"
+                              id="zipCheckbox"
+                              checked={downloadAsZip}
+                              onChange={(e) => setDownloadAsZip(e.target.checked)}
+                              disabled={isDownloadingAll}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                          />
+                          <label 
+                              htmlFor="zipCheckbox" 
+                              className="text-sm text-gray-700 select-none"
+                          >
+                              as ZIP
+                          </label>
+                      </div>
+                  </div>
+                )}
                 <ul className="space-y-2">
                   {processedFiles.map((file, index) => (
                     <li key={index} className="flex justify-between items-center text-sm bg-green-50 p-2 rounded">
@@ -281,7 +338,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Footer with Copyright */}
       <footer className="mt-8 text-center">
         <p className="text-xs text-gray-500">
           © {new Date().getFullYear()} Layerth OÜ
