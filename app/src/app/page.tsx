@@ -191,9 +191,12 @@ export default function Home() {
         priority
       />
       <div className="w-full max-w-lg bg-white p-6 sm:p-8 rounded-lg shadow-md mb-0">
-        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">
+        <h1 className="text-2xl font-bold mb-2 text-center text-gray-800">
           PNG Pre-Multiplier
         </h1>
+        <p className="text-sm text-center text-gray-600 mb-6">
+          For Blackmagic ATEM Switchers
+        </p>
         <div
           className={`relative border-2 border-dashed rounded-lg p-8 sm:p-10 text-center cursor-pointer transition-colors duration-200 ${
             isDragging
