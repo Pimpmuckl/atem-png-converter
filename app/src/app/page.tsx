@@ -326,6 +326,11 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
+
+                {/* Warning Message */}
+                <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-40 border border-yellow-300 dark:border-yellow-700 rounded-md text-sm text-yellow-800 dark:text-yellow-300">
+                  <span className="font-bold">⚠️ Warning:</span> The generated PNG files use pre-multiplied alpha specifically formatted for Blackmagic ATEM switchers. They may not display correctly in other applications and are not standard-compliant PNGs.
+                </div>
               </div>
             )}
 
