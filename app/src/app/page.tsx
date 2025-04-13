@@ -213,7 +213,6 @@ export default function Home() {
     setSelectedFiles((prevFiles) => [...prevFiles, ...newPngFiles]);
     setIsProcessing(true);
 
-    // Choose processing function based on outputFormat
     const processingPromises = newPngFiles.map(file => 
       outputFormat === 'png' ? premultiplyAlpha(file) : convertToTga(file)
     );
@@ -226,7 +225,7 @@ export default function Home() {
       setProcessedFiles((prevProcessed) => [...prevProcessed, ...successfulResults]);
     } catch (error) {       
         console.error("Error during file processing pipeline:", error);
-        // TODO: Add user feedback for processing errors
+        // TODO: Consider adding user feedback for processing errors
     }
     setIsProcessing(false);
   }, [outputFormat]);
@@ -332,21 +331,46 @@ export default function Home() {
           For Blackmagic ATEM Switchers
         </p>
 
-        {/* Format Toggle Switch */}
-        <div className="flex items-center justify-center space-x-2 mb-6">
-          <span className={`cursor-pointer px-3 py-1 rounded-l-md text-sm font-medium ${outputFormat === 'png' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
-                onClick={() => setOutputFormat('png')}
-          >
-            PNG
-          </span>
-          <span className={`cursor-pointer px-3 py-1 rounded-r-md text-sm font-medium relative ${outputFormat === 'tga' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
-                onClick={() => setOutputFormat('tga')}
-          >
-            TGA
-            <sup className="absolute top-0 right-1 text-xs font-semibold text-orange-500 dark:text-orange-400">β</sup>
-          </span>
+        {/* Format Toggle Switch with Sliding Background */}
+        <div className="flex items-center justify-center space-x-3 mb-6">
+          {/* Container for Labels and Sliding Background */}
+          <div className="relative inline-flex items-center bg-gray-200 dark:bg-gray-700 rounded-md p-0.5">
+            {/* Sliding Background Element */}
+            <div 
+              className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-[5px] bg-blue-600 dark:bg-blue-700 transition-transform duration-300 ease-in-out ${ 
+                outputFormat === 'png' ? 'translate-x-[2px]' : 'translate-x-[calc(100%+2px)]' 
+              }`}
+              style={{ willChange: 'transform' }} // Hint for performance
+            ></div>
+
+            {/* PNG Label Button */}
+            <button 
+              type="button"
+              className={`relative z-10 px-3 py-1 w-[70px] text-center text-sm font-medium rounded-[5px] transition-colors duration-150 ${outputFormat === 'png' 
+                ? 'text-white' 
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
+              onClick={() => setOutputFormat('png')}
+            >
+              PNG
+            </button>
+
+            {/* TGA Label Button */}
+            <button 
+              type="button"
+              className={`relative z-10 px-3 py-1 w-[70px] text-center text-sm font-medium rounded-[5px] transition-colors duration-150 ${outputFormat === 'tga' 
+                ? 'text-white' 
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
+              onClick={() => setOutputFormat('tga')}
+            >
+              <span className="relative"> {/* Relative span for positioning beta tag */}
+                TGA
+                <sup className="absolute -top-1.5 -right-3 text-xs font-semibold text-orange-500 dark:text-orange-400">β</sup>
+              </span>
+            </button>
+          </div>
         </div>
 
+        {/* Dropzone */}
         <div
           className={`relative border-2 border-dashed rounded-lg p-8 sm:p-10 text-center cursor-pointer transition-colors duration-200 ${
             isDragging
@@ -373,6 +397,7 @@ export default function Home() {
           <p className="text-gray-500 dark:text-gray-400 pointer-events-none">
             Drag & drop your PNG files here, or click to select files
           </p>
+          {/* Processing Indicator */}
           {isProcessing && (
             <div className="absolute inset-0 bg-white bg-opacity-80 dark:bg-gray-800 dark:bg-opacity-80 flex items-center justify-center rounded-lg">
               <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
@@ -382,8 +407,10 @@ export default function Home() {
           )}
         </div>
 
+        {/* Results Area */}
         {(selectedFiles.length > 0 || processedFiles.length > 0) && (
           <div className="mt-6 space-y-4">
+            {/* Selected Files List */}
             {selectedFiles.length > 0 && (
               <div>
                 <h2 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300">
@@ -397,12 +424,13 @@ export default function Home() {
               </div>
             )}
 
+            {/* Processed/Converted Files List */}
             {processedFiles.length > 0 && (
               <div>
                 <h2 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300">
-                  {/* Dynamic Title */}
                   {outputFormat === 'png' ? 'Processed Files' : 'Converted Files'} ({processedFiles.length}):
                 </h2>
+                {/* Download All Section */}
                 {processedFiles.length > 1 && (
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-100 dark:bg-gray-700 p-3 rounded-md mb-4">
                     <button
@@ -430,6 +458,7 @@ export default function Home() {
                     </div>
                   </div>
                 )}
+                {/* Individual Files List */}
                 <ul className="space-y-2">
                   {processedFiles.map((file, index) => {
                     const extension = file.filename.split('.').pop()?.toUpperCase();
@@ -469,13 +498,14 @@ export default function Home() {
                   })}
                 </ul>
 
-                {/* Updated Warning Message - Always show when files are processed */}
+                {/* ATEM Format Warning */}
                 <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-40 border border-yellow-300 dark:border-yellow-700 rounded-md text-sm text-yellow-800 dark:text-yellow-300">
                   <span className="font-bold">⚠️ Important Note:</span> The generated PNG and TGA files use pre-multiplied alpha specifically formatted for Blackmagic ATEM switchers. They may not display correctly in standard image viewers or other applications and are not standard-compliant file formats in terms of how alpha is handled.
                 </div>
               </div>
             )}
 
+            {/* Clear All Button */}
             <button
               onClick={handleClearAll}
               disabled={isProcessing}
@@ -487,6 +517,7 @@ export default function Home() {
         )}
       </div>
 
+      {/* Footer */}
       <footer className="mt-8 text-center">
         <p className="text-xs text-gray-500 dark:text-gray-400">
           © {new Date().getFullYear()} Layerth OÜ
