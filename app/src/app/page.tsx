@@ -86,6 +86,95 @@ const premultiplyAlpha = (file: File): Promise<ProcessedFile | null> => {
   });
 };
 
+// --- TGA CONVERSION FUNCTION ---
+const convertToTga = (file: File): Promise<ProcessedFile | null> => {
+  return new Promise((resolve, reject) => {
+    createImageBitmap(file, { colorSpaceConversion: 'none' })
+      .then((imageBitmap) => {
+        const width = imageBitmap.width;
+        const height = imageBitmap.height;
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        // We still draw to canvas to easily get pixel data, srgb context is fine
+        const ctx = canvas.getContext("2d", { colorSpace: "srgb" }); 
+
+        if (!ctx) {
+          imageBitmap.close();
+          reject(new Error("Could not get 2D context for TGA conversion"));
+          return;
+        }
+
+        ctx.drawImage(imageBitmap, 0, 0);
+        imageBitmap.close(); // Done with the bitmap
+
+        try {
+          const imageData = ctx.getImageData(0, 0, width, height);
+          const data = imageData.data; // RGBA order
+
+          const tgaHeaderSize = 18;
+          const tgaPixelDataSize = width * height * 4;
+          const tgaBufferSize = tgaHeaderSize + tgaPixelDataSize;
+          const tgaBuffer = new ArrayBuffer(tgaBufferSize);
+          const tgaDataView = new DataView(tgaBuffer);
+
+          // --- Create TGA Header (18 bytes) ---
+          tgaDataView.setUint8(0, 0); // ID Length (no ID field)
+          tgaDataView.setUint8(1, 0); // Color Map Type (no color map)
+          tgaDataView.setUint8(2, 2); // Image Type (uncompressed true-color)
+          // Color Map Specification (5 bytes - unused, set to 0)
+          tgaDataView.setUint16(3, 0, true); // First Entry Index (little-endian)
+          tgaDataView.setUint16(5, 0, true); // Color Map Length (little-endian)
+          tgaDataView.setUint8(7, 0); // Color Map Entry Size
+          // Image Specification (10 bytes)
+          tgaDataView.setUint16(8, 0, true); // X Origin (little-endian)
+          tgaDataView.setUint16(10, 0, true); // Y Origin (little-endian)
+          tgaDataView.setUint16(12, width, true); // Image Width (little-endian)
+          tgaDataView.setUint16(14, height, true); // Image Height (little-endian)
+          tgaDataView.setUint8(16, 32); // Pixel Depth (32 bits for RGBA)
+          // Image Descriptor (1 byte)
+          // Bits 0-3: Alpha channel depth (8 bits)
+          // Bit 5: Screen origin (0 = bottom-left, 1 = top-left)
+          // Set to 0x28 for 8 alpha bits and top-left origin (matches canvas)
+          tgaDataView.setUint8(17, 0x28);
+          // --- End TGA Header ---
+
+          // --- Write Pixel Data (BGRA order) ---
+          let bufferOffset = tgaHeaderSize;
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+
+            // Write in BGRA order
+            tgaDataView.setUint8(bufferOffset++, b); // Blue
+            tgaDataView.setUint8(bufferOffset++, g); // Green
+            tgaDataView.setUint8(bufferOffset++, r); // Red
+            tgaDataView.setUint8(bufferOffset++, a); // Alpha
+          }
+          // --- End Pixel Data ---
+
+          const blob = new Blob([tgaBuffer], { type: 'image/tga' }); // Or application/octet-stream
+          const url = URL.createObjectURL(blob);
+          const baseName = file.name.substring(0, file.name.lastIndexOf("."));
+          const extension = ".tga";
+          const filename = `${baseName}${extension}`;
+          resolve({ url, filename, blob });
+
+        } catch (error) {
+          console.error("Error processing image data for TGA:", error);
+          reject(error);
+        }
+      })
+      .catch((error) => {
+        console.error("Error loading image with createImageBitmap for TGA:", error);
+        reject(error);
+      });
+  });
+};
+// --- END TGA CONVERSION FUNCTION ---
+
 export default function Home() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [processedFiles, setProcessedFiles] = useState<ProcessedFile[]>([]);
@@ -93,6 +182,7 @@ export default function Home() {
   const [isDownloadingAll, setIsDownloadingAll] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [downloadAsZip, setDownloadAsZip] = useState<boolean>(true);
+  const [outputFormat, setOutputFormat] = useState<'png' | 'tga'>('png');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -116,16 +206,23 @@ export default function Home() {
     setSelectedFiles((prevFiles) => [...prevFiles, ...newPngFiles]);
     setIsProcessing(true);
 
-    const processingPromises = newPngFiles.map(premultiplyAlpha);
-    const results = await Promise.all(processingPromises);
-
-    const successfulResults = results.filter(
-      (result): result is ProcessedFile => result !== null
+    // Choose processing function based on outputFormat
+    const processingPromises = newPngFiles.map(file => 
+      outputFormat === 'png' ? premultiplyAlpha(file) : convertToTga(file)
     );
-
-    setProcessedFiles((prevProcessed) => [...prevProcessed, ...successfulResults]);
+    
+    try {
+      const results = await Promise.all(processingPromises);
+      const successfulResults = results.filter(
+        (result): result is ProcessedFile => result !== null
+      );
+      setProcessedFiles((prevProcessed) => [...prevProcessed, ...successfulResults]);
+    } catch (error) {       
+        console.error("Error during file processing pipeline:", error);
+        // TODO: Add user feedback for processing errors
+    }
     setIsProcessing(false);
-  }, []);
+  }, [outputFormat]);
 
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -184,20 +281,20 @@ export default function Home() {
 
   const handleDownloadAll = useCallback(async () => {
     if (processedFiles.length === 0 || isDownloadingAll) return;
-
     setIsDownloadingAll(true);
+    const zipFilename = outputFormat === 'png' ? "premultiplied_files.zip" : "tga_files.zip";
 
     if (downloadAsZip) {
       const zip = new JSZip();
       processedFiles.forEach((file) => {
-        zip.file(file.filename, file.blob);
+        // Use the blob and filename directly from the processedFiles state
+        zip.file(file.filename, file.blob); 
       });
-
       try {
         const zipBlob = await zip.generateAsync({ type: "blob" });
-        saveAs(zipBlob, "premultiplied_files.zip");
+        saveAs(zipBlob, zipFilename);
       } catch (error) {
-        console.error("Error generating zip file:", error);
+        console.error(`Error generating ${zipFilename}:`, error);
       }
     } else {
       processedFiles.forEach((file) => {
@@ -207,9 +304,8 @@ export default function Home() {
          link.click(); 
       });
     }
-
     setIsDownloadingAll(false);
-  }, [processedFiles, downloadAsZip, isDownloadingAll]);
+  }, [processedFiles, downloadAsZip, isDownloadingAll, outputFormat]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6 sm:p-12 bg-gray-100 dark:bg-gray-900">
@@ -228,6 +324,21 @@ export default function Home() {
         <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
           For Blackmagic ATEM Switchers
         </p>
+
+        {/* Format Toggle Switch */}
+        <div className="flex items-center justify-center space-x-2 mb-6">
+          <span className={`cursor-pointer px-3 py-1 rounded-l-md text-sm font-medium ${outputFormat === 'png' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
+                onClick={() => setOutputFormat('png')}
+          >
+            PNG
+          </span>
+          <span className={`cursor-pointer px-3 py-1 rounded-r-md text-sm font-medium ${outputFormat === 'tga' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
+                onClick={() => setOutputFormat('tga')}
+          >
+            TGA
+          </span>
+        </div>
+
         <div
           className={`relative border-2 border-dashed rounded-lg p-8 sm:p-10 text-center cursor-pointer transition-colors duration-200 ${
             isDragging
@@ -281,7 +392,8 @@ export default function Home() {
             {processedFiles.length > 0 && (
               <div>
                 <h2 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300">
-                  Processed Files ({processedFiles.length}):
+                  {/* Dynamic Title */}
+                  {outputFormat === 'png' ? 'Processed Files' : 'Converted Files'} ({processedFiles.length}):
                 </h2>
                 {processedFiles.length > 1 && (
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-100 dark:bg-gray-700 p-3 rounded-md mb-4">
@@ -327,10 +439,12 @@ export default function Home() {
                   ))}
                 </ul>
 
-                {/* Warning Message */}
-                <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-40 border border-yellow-300 dark:border-yellow-700 rounded-md text-sm text-yellow-800 dark:text-yellow-300">
-                  <span className="font-bold">⚠️ Warning:</span> The generated PNG files use pre-multiplied alpha specifically formatted for Blackmagic ATEM switchers. They may not display correctly in other applications and are not standard-compliant PNGs.
-                </div>
+                {/* Warning Message - Only show for PNG output */}
+                {outputFormat === 'png' && (
+                    <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-40 border border-yellow-300 dark:border-yellow-700 rounded-md text-sm text-yellow-800 dark:text-yellow-300">
+                    <span className="font-bold">⚠️ Warning:</span> The generated PNG files use pre-multiplied alpha specifically formatted for Blackmagic ATEM switchers. They may not display correctly in other applications and are not standard-compliant PNGs.
+                    </div>
+                )}
               </div>
             )}
 
