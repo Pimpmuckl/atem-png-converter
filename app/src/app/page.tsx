@@ -147,11 +147,18 @@ const convertToTga = (file: File): Promise<ProcessedFile | null> => {
             const b = data[i + 2];
             const a = data[i + 3];
 
-            // Write in BGRA order
-            tgaDataView.setUint8(bufferOffset++, b); // Blue
-            tgaDataView.setUint8(bufferOffset++, g); // Green
-            tgaDataView.setUint8(bufferOffset++, r); // Red
-            tgaDataView.setUint8(bufferOffset++, a); // Alpha
+            // --- Pre-multiply RGB values --- 
+            const alphaFactor = a / 255;
+            const premultR = Math.floor(r * alphaFactor);
+            const premultG = Math.floor(g * alphaFactor);
+            const premultB = Math.floor(b * alphaFactor);
+            // --- End Pre-multiplication ---
+
+            // Write pre-multiplied values in BGRA order
+            tgaDataView.setUint8(bufferOffset++, premultB); // Pre-multiplied Blue
+            tgaDataView.setUint8(bufferOffset++, premultG); // Pre-multiplied Green
+            tgaDataView.setUint8(bufferOffset++, premultR); // Pre-multiplied Red
+            tgaDataView.setUint8(bufferOffset++, a);        // Original Alpha
           }
           // --- End Pixel Data ---
 
@@ -332,10 +339,11 @@ export default function Home() {
           >
             PNG
           </span>
-          <span className={`cursor-pointer px-3 py-1 rounded-r-md text-sm font-medium ${outputFormat === 'tga' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
+          <span className={`cursor-pointer px-3 py-1 rounded-r-md text-sm font-medium relative ${outputFormat === 'tga' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
                 onClick={() => setOutputFormat('tga')}
           >
             TGA
+            <sup className="absolute top-0 right-1 text-xs font-semibold text-orange-500 dark:text-orange-400">β</sup>
           </span>
         </div>
 
@@ -423,28 +431,48 @@ export default function Home() {
                   </div>
                 )}
                 <ul className="space-y-2">
-                  {processedFiles.map((file, index) => (
-                    <li key={index} className="flex justify-between items-center text-sm bg-green-50 dark:bg-green-900 dark:bg-opacity-50 p-2 rounded">
-                      <span className="text-green-800 dark:text-green-300 truncate pr-2">
-                        {file.filename}
-                      </span>
-                      <a
-                        href={file.url}
-                        download={file.filename}
-                        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 text-xs font-medium whitespace-nowrap"
-                      >
-                        Download
-                      </a>
-                    </li>
-                  ))}
+                  {processedFiles.map((file, index) => {
+                    const extension = file.filename.split('.').pop()?.toUpperCase();
+                    const isPng = extension === 'PNG';
+                    const isTga = extension === 'TGA';
+                    
+                    return (
+                      <li key={index} className="flex justify-between items-center text-sm bg-green-50 dark:bg-green-900 dark:bg-opacity-50 p-2 rounded">
+                        <div className="flex items-center overflow-hidden"> {/* Container for tag + filename */} 
+                          {/* Format Tag */}
+                          {(isPng || isTga) && (
+                            <span 
+                              className={`mr-2 px-1.5 py-0.5 rounded text-xs font-semibold uppercase whitespace-nowrap ${ 
+                                isPng 
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
+                                  : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                              }`}
+                            >
+                              {extension}
+                            </span>
+                          )}
+                          {/* Filename */}
+                          <span className="text-green-800 dark:text-green-300 truncate">
+                            {file.filename}
+                          </span>
+                        </div>
+                        {/* Download Button */}
+                        <a
+                          href={file.url}
+                          download={file.filename}
+                          className="flex-shrink-0 ml-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 text-xs font-medium whitespace-nowrap"
+                        >
+                          Download
+                        </a>
+                      </li>
+                    )
+                  })}
                 </ul>
 
-                {/* Warning Message - Only show for PNG output */}
-                {outputFormat === 'png' && (
-                    <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-40 border border-yellow-300 dark:border-yellow-700 rounded-md text-sm text-yellow-800 dark:text-yellow-300">
-                    <span className="font-bold">⚠️ Warning:</span> The generated PNG files use pre-multiplied alpha specifically formatted for Blackmagic ATEM switchers. They may not display correctly in other applications and are not standard-compliant PNGs.
-                    </div>
-                )}
+                {/* Updated Warning Message - Always show when files are processed */}
+                <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-40 border border-yellow-300 dark:border-yellow-700 rounded-md text-sm text-yellow-800 dark:text-yellow-300">
+                  <span className="font-bold">⚠️ Important Note:</span> The generated PNG and TGA files use pre-multiplied alpha specifically formatted for Blackmagic ATEM switchers. They may not display correctly in standard image viewers or other applications and are not standard-compliant file formats in terms of how alpha is handled.
+                </div>
               </div>
             )}
 
